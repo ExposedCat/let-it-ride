@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: docker.io/mongo:8
+    container_name: let-it-ride-mongodb
+    restart: always
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - app
+    ports:
+      - "127.0.0.1:27017:27017"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "db.adminCommand('ping').ok",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  app:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/let-it-ride:latest
+    container_name: let-it-ride-app
+    restart: always
+    env_file: .env
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/let-it-ride
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app
+
+volumes:
+  mongodb-data:
+    name: let-it-ride-mongodb-data
+
+networks:
+  app:
+    name: let-it-ride-app
