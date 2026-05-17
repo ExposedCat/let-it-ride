@@ -5,12 +5,17 @@ services:
     image: docker.io/mongo:8
     container_name: let-it-ride-mongodb
     restart: always
+    logging:
+      driver: "none"
+    command:
+      - mongod
+      - --quiet
     volumes:
       - mongodb-data:/data/db
     networks:
       - app
     ports:
-      - "127.0.0.1:27017:27017"
+      - "127.0.0.1:3001:27017"
     healthcheck:
       test:
         [
@@ -20,10 +25,10 @@ services:
           "--eval",
           "db.adminCommand('ping').ok",
         ]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+      interval: 2s
+      timeout: 1s
+      retries: 10
+      start_period: 1s
 
   app:
     build:
@@ -41,7 +46,37 @@ services:
     networks:
       - app
 
+  app-dev:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/let-it-ride:latest
+    container_name: let-it-ride-app-dev
+    restart: always
+    command:
+      - deno
+      - run
+      - --watch
+      - -A
+      - src/app.ts
+    env_file: .env
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/let-it-ride
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app
+    volumes:
+      - ./src:/app/src:Z
+      - ./locales:/app/locales:Z
+      - ./deno.json:/app/deno.json:Z
+      - ./deno.lock:/app/deno.lock:Z
+      - deno-dir:/deno-dir
+
 volumes:
+  deno-dir:
+    name: let-it-ride-deno-dir
   mongodb-data:
     name: let-it-ride-mongodb-data
 
