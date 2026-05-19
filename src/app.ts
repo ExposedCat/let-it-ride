@@ -1,5 +1,5 @@
 import { createDebug } from "@grammyjs/debug";
-import { initBot } from "./bot.ts";
+import { initBot } from "./features/bot.ts";
 import { type Database, initDatabase } from "./features/database.ts";
 
 const [logDebug, logError] = [

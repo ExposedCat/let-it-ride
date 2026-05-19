@@ -1,11 +1,9 @@
 import { type Collection, type Db, MongoClient } from "mongodb";
 import type { Static, TObject } from "typebox";
 import { type Chat, chatSchema } from "./chat.ts";
-import { type User, userSchema } from "./user.ts";
 
 export type Database = {
   chat: Collection<Chat>;
-  user: Collection<User>;
 };
 
 async function ensureCollection<T extends TObject>(
@@ -39,8 +37,7 @@ export function initDatabase() {
     const db = client.db();
 
     const chat = await ensureCollection(db, "chat", chatSchema);
-    const user = await ensureCollection(db, "user", userSchema);
-    const database: Database = { chat, user };
+    const database: Database = { chat };
 
     return database;
   };
