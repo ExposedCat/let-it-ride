@@ -1,16 +1,16 @@
 {
 	"tasks": {
-		"format": "deno run -A @biomejs/biome check --write",
 		"dev": "./dev.sh",
-		"check": "deno run -A @biomejs/biome check"
+		"format": "deno run -A @biomejs/biome check --write"
 	},
 	"imports": {
 		"@biomejs/biome": "npm:@biomejs/biome@^2.4.15",
+		"@db/sqlite": "jsr:@db/sqlite@^0.13.0",
 		"@grammyjs/debug": "jsr:@grammyjs/debug@^0.2.1",
+		"@kysely/kysely": "jsr:@kysely/kysely@0.28.17",
+		"@marshift/kysely-deno-sqlite3": "jsr:@marshift/kysely-deno-sqlite3@^1.0.0",
 		"@openai/openai": "jsr:@openai/openai@^6.38.0",
 		"grammy": "https://deno.land/x/grammy@v1.38.3/mod.ts",
-		"grammy-i18n": "https://deno.land/x/grammy_i18n@v1.1.0/mod.ts",
-		"typebox": "npm:typebox@^1.1.38",
-		"mongodb": "npm:mongodb@^7.0.0"
+		"grammy-i18n": "https://deno.land/x/grammy_i18n@v1.1.0/mod.ts"
 	}
 }

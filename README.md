@@ -1,21 +1,20 @@
 # Telegram Bot Template
 
-State of the art starter for TypeScript + MongoDb Telegram Bots
+State of the art starter for TypeScript + SQLite Telegram Bots
 
 ## Stack
 - TypeScript & Deno
 - grammY as a core framework
 - grammY/debug as a logger
 - Biome as all-in-one codestyle enforcer
-- MongoDB as a database
-- Typebox for database validation
+- SQLite as a database
+- Kysely as a typed query builder
 
 ## Development
 
 1. Copy `.env.template` to `.env`
 2. Set `BOT_TOKEN`
-3. Start MongoDB locally
-4. Run `deno task dev`
+3. Run `deno task dev`
 
 ## Docker Compose
 
@@ -23,6 +22,5 @@ State of the art starter for TypeScript + MongoDb Telegram Bots
 2. Set `BOT_TOKEN`
 3. Run `docker compose up --build -d`
 
-The Compose stack starts both the bot and MongoDB. The app container overrides
-`MONGODB_URI` to use the internal `mongodb` hostname, so the `.env` example
-still works for local non-Docker development.
+The Compose stack stores SQLite data in the `let-it-ride-sqlite-data` volume.
+Set `SQLITE_PATH` in `.env` to override the local database file path.

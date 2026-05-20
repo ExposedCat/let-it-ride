@@ -1,35 +1,6 @@
 version: "3.8"
 
 services:
-  mongodb:
-    image: docker.io/mongo:8
-    container_name: let-it-ride-mongodb
-    restart: always
-    logging:
-      driver: "none"
-    command:
-      - mongod
-      - --quiet
-    volumes:
-      - mongodb-data:/data/db
-    networks:
-      - app
-    ports:
-      - "127.0.0.1:3001:27017"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--quiet",
-          "--eval",
-          "db.adminCommand('ping').ok",
-        ]
-      interval: 2s
-      timeout: 1s
-      retries: 10
-      start_period: 1s
-
   app:
     build:
       context: .
@@ -39,12 +10,11 @@ services:
     restart: always
     env_file: .env
     environment:
-      MONGODB_URI: mongodb://mongodb:27017/let-it-ride
-    depends_on:
-      mongodb:
-        condition: service_healthy
+      SQLITE_PATH: /data/let-it-ride.sqlite
     networks:
       - app
+    volumes:
+      - sqlite-data:/data
 
   app-dev:
     build:
@@ -61,10 +31,7 @@ services:
       - src/app.ts
     env_file: .env
     environment:
-      MONGODB_URI: mongodb://mongodb:27017/let-it-ride
-    depends_on:
-      mongodb:
-        condition: service_healthy
+      SQLITE_PATH: /data/let-it-ride.sqlite
     networks:
       - app
     volumes:
@@ -73,12 +40,13 @@ services:
       - ./deno.json:/app/deno.json:Z
       - ./deno.lock:/app/deno.lock:Z
       - deno-dir:/deno-dir
+      - sqlite-data:/data
 
 volumes:
   deno-dir:
     name: let-it-ride-deno-dir
-  mongodb-data:
-    name: let-it-ride-mongodb-data
+  sqlite-data:
+    name: let-it-ride-sqlite-data
 
 networks:
   app:

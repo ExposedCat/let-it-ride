@@ -1,1 +1,4 @@
 .env
+let-it-ride.sqlite-shm
+let-it-ride.sqlite-wal
+let-it-ride.sqlite
