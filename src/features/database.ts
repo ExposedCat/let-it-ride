@@ -1,6 +1,7 @@
 import { Database as SQLiteDatabase } from "@db/sqlite";
 import { type ColumnType, Kysely, sql } from "@kysely/kysely";
 import { DenoSqlite3Dialect } from "@marshift/kysely-deno-sqlite3";
+import { APP_ENV } from "../utils/env.ts";
 
 type ReadonlyColumn<T> = ColumnType<T, T, never>;
 
@@ -12,6 +13,8 @@ export type DatabaseSchema = {
   chat_users: {
     chat_id: ReadonlyColumn<number>;
     user_id: ReadonlyColumn<number>;
+    name: string;
+    balance: ColumnType<number, number | undefined, number>;
   };
   rolls: {
     chat_id: ReadonlyColumn<number>;
@@ -46,6 +49,10 @@ async function migrate(database: Database) {
     .ifNotExists()
     .addColumn("chat_id", "integer", (column) => column.notNull())
     .addColumn("user_id", "integer", (column) => column.notNull())
+    .addColumn("name", "text", (column) => column.notNull())
+    .addColumn("balance", "integer", (column) =>
+      column.notNull().defaultTo(500),
+    )
     .addPrimaryKeyConstraint("chat_users_pk", ["chat_id", "user_id"])
     .addForeignKeyConstraint(
       "chat_users_chat_id_fk",
@@ -97,12 +104,10 @@ async function migrate(database: Database) {
 }
 
 export function initDatabase() {
-  const path = Deno.env.get("SQLITE_PATH") ?? "let-it-ride.sqlite";
-
   const connect = async (): Promise<Database> => {
     const database = new Kysely<DatabaseSchema>({
       dialect: new DenoSqlite3Dialect({
-        database: new SQLiteDatabase(path, { int64: true }),
+        database: new SQLiteDatabase(APP_ENV.SQLITE_PATH, { int64: true }),
       }),
     });
 

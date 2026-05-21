@@ -7,3 +7,7 @@ chat_with_prompt =
 empty_chat = Send a new prompt for the {$chat}
 
 prompt_saved = Prompt saved. Waiting for the next roll...
+
+letitride_no_prompts = Nobody has submitted a prompt today.
+letitride_started = Let it ride!
+letitride_rolling = Rolling...

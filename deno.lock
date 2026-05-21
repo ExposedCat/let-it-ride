@@ -9,6 +9,7 @@
     "jsr:@kysely/kysely@0.28.17": "0.28.17",
     "jsr:@marshift/kysely-deno-sqlite3@*": "1.0.0",
     "jsr:@marshift/kysely-deno-sqlite3@1": "1.0.0",
+    "jsr:@openai/openai@6.38.0": "6.38.0",
     "jsr:@openai/openai@^6.38.0": "6.38.0",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/fmt@1": "1.0.9",

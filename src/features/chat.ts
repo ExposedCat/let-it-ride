@@ -1,10 +1,15 @@
 import { Composer } from "grammy";
 import type { Context } from "./bot.ts";
 import type { Database } from "./database.ts";
+import { evaluateWinner } from "./llm.ts";
 
 type RollBet = {
   userId: number;
   prompt: string;
+};
+
+type TodaysPrompt = RollBet & {
+  name: string;
 };
 
 type Roll = {
@@ -24,22 +29,76 @@ export type Chat = {
 
 export const chatComposer = new Composer<Context>();
 
-chatComposer.on("message", async (ctx, next) => {
-  console.log(ctx.chat);
-  await saveChatUser({
-    chatId: ctx.chat.id,
-    title: ctx.chat.title ?? "Unknown chat",
-    userId: ctx.from?.id,
-    database: ctx.database,
+chatComposer
+  .chatType(["group", "supergroup"])
+  .on("message", async (ctx, next) => {
+    await saveChatUser({
+      chatId: ctx.chat.id,
+      title: ctx.chat.title ?? "Unknown chat",
+      userId: ctx.from?.id,
+      name: ctx.from ? getUserName(ctx.from) : undefined,
+      database: ctx.database,
+    });
+
+    await next();
   });
 
-  await next();
-});
+chatComposer
+  .chatType(["group", "supergroup"])
+  .command("letitride", async (ctx) => {
+    await ctx.reply(ctx.t("letitride_started"));
+
+    const prompts = await getTodaysPrompts({
+      chatId: ctx.chat.id,
+      database: ctx.database,
+    });
+
+    if (prompts.length === 0) {
+      await ctx.reply(ctx.t("letitride_no_prompts"));
+      return;
+    }
+
+    const evaluation = await evaluateWinner(prompts, {
+      onPromptInjectionEvaluated: async () => {
+        await ctx.reply(ctx.t("letitride_rolling"));
+      },
+    });
+    const elaboration = renderPlayerNames(evaluation.elaboration, prompts);
+
+    await saveRollResult({
+      chatId: ctx.chat.id,
+      winner: evaluation.winner,
+      winReason: elaboration,
+      database: ctx.database,
+    });
+
+    await ctx.reply(elaboration);
+  });
+
+function getTodayTimestamp() {
+  return new Date().setHours(0, 0, 0, 0);
+}
+
+function getUserName(user: NonNullable<Context["from"]>) {
+  return (
+    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+    user.username ||
+    String(user.id)
+  );
+}
+
+function renderPlayerNames(text: string, prompts: TodaysPrompt[]) {
+  return prompts.reduce(
+    (message, { userId, name }) => message.replaceAll(`$name:${userId}`, name),
+    text,
+  );
+}
 
 type SaveChatUserParams = {
   chatId: number;
   title: string;
   userId?: number;
+  name?: string;
   database: Database;
 };
 
@@ -47,6 +106,7 @@ export async function saveChatUser({
   chatId,
   title,
   userId,
+  name,
   database,
 }: SaveChatUserParams) {
   await database
@@ -61,9 +121,15 @@ export async function saveChatUser({
 
   await database
     .insertInto("chat_users")
-    .values({ chat_id: chatId, user_id: userId })
+    .values({
+      chat_id: chatId,
+      user_id: userId,
+      name: name ?? String(userId),
+    })
     .onConflict((conflict) =>
-      conflict.columns(["chat_id", "user_id"]).doNothing(),
+      conflict.columns(["chat_id", "user_id"]).doUpdateSet({
+        name: name ?? String(userId),
+      }),
     )
     .execute();
 }
@@ -79,6 +145,7 @@ export function getUserChats({ userId, database }: GetUserChatsParams) {
     .innerJoin("chat_users", "chat_users.chat_id", "chats.id")
     .select(["chats.id", "chats.title"])
     .where("chat_users.user_id", "=", userId)
+    .where("chats.id", "!=", userId)
     .orderBy("chats.title")
     .execute();
 }
@@ -151,7 +218,7 @@ export function getUserTodaysRoll({
     .leftJoin("rolls", (join) =>
       join
         .onRef("rolls.chat_id", "=", "chats.id")
-        .on("rolls.timestamp", "=", new Date().setHours(0, 0, 0, 0)),
+        .on("rolls.timestamp", "=", getTodayTimestamp()),
     )
     .leftJoin("roll_bets", (join) =>
       join
@@ -169,9 +236,35 @@ export function getUserTodaysRoll({
     .executeTakeFirst();
 }
 
+type GetTodaysPromptsParams = {
+  chatId: number;
+  database: Database;
+};
+
+export function getTodaysPrompts({ chatId, database }: GetTodaysPromptsParams) {
+  return database
+    .selectFrom("roll_bets")
+    .innerJoin("chat_users", (join) =>
+      join
+        .onRef("chat_users.chat_id", "=", "roll_bets.chat_id")
+        .onRef("chat_users.user_id", "=", "roll_bets.user_id"),
+    )
+    .select([
+      "roll_bets.user_id as userId",
+      "chat_users.name",
+      "roll_bets.prompt",
+    ])
+    .where("roll_bets.chat_id", "=", chatId)
+    .where("roll_bets.roll_timestamp", "=", getTodayTimestamp())
+    .where("roll_bets.prompt", "!=", "")
+    .orderBy("chat_users.name")
+    .execute();
+}
+
 type SaveRollPromptParams = {
   chatId: number;
   userId: number;
+  name?: string;
   prompt: string;
   database: Database;
 };
@@ -179,10 +272,11 @@ type SaveRollPromptParams = {
 export async function saveRollPrompt({
   chatId,
   userId,
+  name,
   prompt,
   database,
 }: SaveRollPromptParams) {
-  const timestamp = new Date().setHours(0, 0, 0, 0);
+  const timestamp = getTodayTimestamp();
   const rollId = `${chatId}:${timestamp}`;
 
   await database.transaction().execute(async (transaction) => {
@@ -190,6 +284,20 @@ export async function saveRollPrompt({
       .insertInto("chats")
       .values({ id: chatId, title: "Unknown chat" })
       .onConflict((conflict) => conflict.column("id").doNothing())
+      .execute();
+
+    await transaction
+      .insertInto("chat_users")
+      .values({
+        chat_id: chatId,
+        user_id: userId,
+        name: name ?? String(userId),
+      })
+      .onConflict((conflict) =>
+        conflict.columns(["chat_id", "user_id"]).doUpdateSet({
+          name: name ?? String(userId),
+        }),
+      )
       .execute();
 
     await transaction
@@ -221,4 +329,25 @@ export async function saveRollPrompt({
       )
       .execute();
   });
+}
+
+type SaveRollResultParams = {
+  chatId: number;
+  winner: number;
+  winReason: string;
+  database: Database;
+};
+
+async function saveRollResult({
+  chatId,
+  winner,
+  winReason,
+  database,
+}: SaveRollResultParams) {
+  await database
+    .updateTable("rolls")
+    .set({ winner, win_reason: winReason })
+    .where("chat_id", "=", chatId)
+    .where("timestamp", "=", getTodayTimestamp())
+    .execute();
 }

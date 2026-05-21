@@ -17,6 +17,10 @@ promptComposer.chatType("private").on("message:text", async (ctx, next) => {
   await saveRollPrompt({
     chatId,
     userId,
+    name:
+      [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") ||
+      ctx.from.username ||
+      String(userId),
     prompt,
     database: ctx.database,
   });
